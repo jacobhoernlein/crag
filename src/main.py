@@ -3,7 +3,6 @@ import asyncio
 
 import discord
 
-
 class CragBot(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -39,6 +38,10 @@ if __name__ == '__main__':
             if msg.channel.type == discord.ChannelType.private \
             and str(msg.author.id) == '243845903146811393':
                 await crag.channel.send(msg.content)
+
+    # Bad input.
+    else:
+        exit()
 
     crag.run(os.getenv('BOTTOKEN'))
     asyncio.run(cb.close())
