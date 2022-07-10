@@ -39,7 +39,6 @@ if __name__ == '__main__':
             and str(msg.author.id) == '243845903146811393':
                 await crag.channel.send(msg.content)
 
-    # Bad input.
     else:
         exit()
 
