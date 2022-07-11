@@ -3,6 +3,7 @@ import asyncio
 
 import discord
 
+
 class CragBot(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -13,10 +14,23 @@ class CragBot(discord.Client):
         print("crag.")
 
 
+async def send_messages(bot:CragBot):
+    await bot.login(os.getenv('BOTTOKEN'))
+    channel = await bot.fetch_channel('994482057336074341')
+
+    while True:
+        try:
+            message = input("> ")
+        except KeyboardInterrupt:
+            await bot.close()
+            break
+        else:
+            await channel.send(message)
+    
 if __name__ == '__main__':
     crag = CragBot(intents=discord.Intents.all())
-    
-    mode = input("Select mode. 1) Auto, 2) Manual: ")
+
+    mode = input("Select mode. 1) Cleverbot, 2) DMs, 3) Terminal: ")
 
     # Auto Mode. Uses Cleverbot API.
     if int(mode) == 1:
@@ -31,6 +45,9 @@ if __name__ == '__main__':
                 cb.save('cleverbot.crag')
                 await msg.channel.send(response)
 
+        crag.run(os.getenv('BOTTOKEN'))
+        asyncio.run(cb.close())
+
     # Manual Mode. Uses Jacob's DMs.
     elif int(mode) == 2:
         @crag.event
@@ -39,8 +56,8 @@ if __name__ == '__main__':
             and str(msg.author.id) == '243845903146811393':
                 await crag.channel.send(msg.content)
 
-    else:
-        exit()
+        crag.run(os.getenv('BOTTOKEN'))
 
-    crag.run(os.getenv('BOTTOKEN'))
-    asyncio.run(cb.close())
+    # Terminal Mode. Does not show bot as Online.
+    elif int(mode) == 3:
+        asyncio.run(send_messages(crag))
