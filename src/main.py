@@ -9,7 +9,6 @@ class CragBot(commands.Bot):
         super().__init__(*args, **kwargs)
         self.channel:discord.TextChannel = None
         self.mode = 1
-        self.authed_users = ['243845903146811393', '534939215855878151']
         self.cb = cleverbot.load('cleverbot.crag')
 
     async def on_ready(self):
@@ -18,32 +17,39 @@ class CragBot(commands.Bot):
         print("crag.")
 
     async def on_message(self, msg:discord.Message):
-        if self.mode == 1:
-            if msg.channel == self.channel \
-            and msg.author != self.user:
-                response = self.cb.say(msg.content)
-                self.cb.save('cleverbot.crag')
-                await msg.channel.send(response)
-        
-        if self.mode == 2:
-            if msg.channel.type == discord.ChannelType.private \
-            and str(msg.author.id) in crag.authed_users:
-                await crag.channel.send(msg.content)
+        if self.mode == 1 \
+        and msg.channel == self.channel \
+        and msg.author != self.user:
+            response = self.cb.say(msg.content)
+            self.cb.save('cleverbot.crag')
+            await msg.channel.send(response)
+    
 
-crag = CragBot(command_prefix="crag.", intents=discord.Intents.all())
+crag = CragBot(command_prefix="NO PREFIX", intents=discord.Intents.all())
 
-@crag.tree.command(name="mode", description="Does nothing.")
-async def change_mode(interaction:discord.Interaction):
-    if str(interaction.user.id) not in crag.authed_users:
-        await interaction.response.send_message("No.", ephemeral=True)
-        return
-    if crag.mode == 1:
-        crag.mode = 2
-        await interaction.response.send_message("Changed to Manual.", ephemeral=True)
-        return
-    if crag.mode == 2:
+@crag.tree.command(name="mode", description="Change crag's mode. Manual will disable cleverbot. Then use /say")
+@discord.app_commands.guild_only()
+@discord.app_commands.choices(mode=[
+    discord.app_commands.Choice(name="Auto", value=1),
+    discord.app_commands.Choice(name="Manual", value=2)
+    ])
+async def crag_mode(interaction:discord.Interaction, mode:discord.app_commands.Choice[int]):
+    if mode.value == 1:
         crag.mode = 1
-        await interaction.response.send_message("Changed to Auto.", ephemeral=True)
-        return
+        await interaction.response.send_message("Changed to Auto", ephemeral=True)
+    if mode.value == 2:
+        crag.mode = 2
+        await interaction.response.send_message("Changed to manual. Using /say.", ephemeral=True)
+
+@crag.tree.command(name="say", description="Make crag say something.")
+@discord.app_commands.guild_only()
+@discord.app_commands.describe(content="The thing crag should say.")
+async def crag_say(interaction:discord.Interaction, content:str):
+    if crag.mode == 2:
+        await interaction.channel.send(content)
+        await interaction.response.send_message("Done.")
+        await interaction.delete_original_response()
+    else:
+        await interaction.response.send_message("Change to manual mode first!", ephemeral=True)
 
 crag.run(os.getenv('CRAGTOKEN'))
