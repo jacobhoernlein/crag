@@ -1,3 +1,4 @@
+import asyncio
 import os
 import discord
 from discord.ext import commands
@@ -22,6 +23,9 @@ class CragBot(commands.Bot):
         and msg.author != self.user:
             response = self.cb.say(msg.content)
             self.cb.save('cleverbot.crag')
+            
+            async with msg.channel.typing():
+                await asyncio.sleep(2)
             await msg.channel.send(response)
     
 
@@ -37,9 +41,11 @@ async def crag_mode(interaction:discord.Interaction, mode:discord.app_commands.C
     if mode.value == 1:
         crag.mode = 1
         await interaction.response.send_message("Changed to Auto", ephemeral=True)
+        await crag.change_presence(status=discord.Status.online)
     if mode.value == 2:
         crag.mode = 2
         await interaction.response.send_message("Changed to manual. Using /say.", ephemeral=True)
+        await crag.change_presence(status=discord.Status.do_not_disturb)
 
 @crag.tree.command(name="say", description="Make crag say something.")
 @discord.app_commands.guild_only()
