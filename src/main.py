@@ -19,7 +19,6 @@ class GuildSetting:
 
     guild: discord.Guild
     channel: discord.TextChannel
-    mode: int
     convo: cleverbot.cleverbot.Conversation
 
 
@@ -44,10 +43,9 @@ class CommandsCog(commands.Cog):
             
             guild: discord.Guild = discord.utils.find(lambda g: g.id == guild_id, self.bot.guilds)
             channel: discord.TextChannel = discord.utils.find(lambda c: c.id == channel_id, guild.channels)
-            mode = guild_record[2]
             conversation: cleverbot.cleverbot.Conversation = self.cb.conversations[str(guild.id)]
 
-            self.guild_settings[guild.id] = GuildSetting(guild, channel, mode, conversation)
+            self.guild_settings[guild.id] = GuildSetting(guild, channel, conversation)
 
         await self.bot.tree.sync()
         print("crag.")
@@ -60,7 +58,7 @@ class CommandsCog(commands.Cog):
         if msg.guild.id in self.guild_settings.keys():
             guild_setting = self.guild_settings[msg.guild.id]
 
-            if guild_setting.channel == msg.channel and guild_setting.mode == 1:
+            if guild_setting.channel == msg.channel:
                 response = guild_setting.convo.say(msg.content)
                 self.cb.save('cleverbot.crag')
 
@@ -77,55 +75,15 @@ class CommandsCog(commands.Cog):
         del self.guild_settings[guild.id]
         self.db.execute(f"DELETE FROM guilds WHERE guild_id = {guild.id}")
         self.db.commit()
-
-    @discord.app_commands.command(name="mode", description="Change crag's mode. Manual will disable cleverbot. Then use /say.")
-    @discord.app_commands.guild_only()
-    @discord.app_commands.choices(mode=[
-        discord.app_commands.Choice(name="Auto", value=1),
-        discord.app_commands.Choice(name="Manual", value=2)
-        ])
-    async def crag_mode(self, interaction: discord.Interaction, mode: discord.app_commands.Choice[int]):
-    
-        if interaction.guild_id not in self.guild_settings.keys():
-            await interaction.response.send_message("You have to set me up first! do /setchannel in any channel.", ephemeral=True)
-            return
-        
-        if mode.value == 1:
-            self.db.execute(f"UPDATE guilds SET mode = 1 WHERE guild_id = {interaction.guild_id}")
-            self.guild_settings[interaction.guild_id].mode = 1
-            await interaction.response.send_message("Changed to Auto", ephemeral=True)
-            
-        if mode.value == 2:
-            self.db.execute(f"UPDATE guilds SET mode = 2 WHERE guild_id = {interaction.guild_id}")
-            self.guild_settings[interaction.guild_id].mode = 2
-            await interaction.response.send_message("Changed to manual. Using /say.", ephemeral=True)
-            
-        self.db.commit()
-
-    @discord.app_commands.command(name="say", description="Make crag say something.")
-    @discord.app_commands.guild_only()
-    @discord.app_commands.describe(content="The thing crag should say.")
-    async def crag_say(self, interaction: discord.Interaction, content: str):
-        
-        if interaction.guild_id not in self.guild_settings.keys():
-            await interaction.response.send_message("You have to set me up first! do /setchannel in any channel.", ephemeral=True)
-            return
-        
-        if self.guild_settings[interaction.guild_id].mode == 2:
-            await interaction.channel.send(content)
-            await interaction.response.send_message(".")
-            await interaction.delete_original_response()
-        else:
-            await interaction.response.send_message("Change to manual mode first!", ephemeral=True)
     
     @discord.app_commands.command(name="setchannel", description="Change the channel that crag will live in to the current channel.")
     @discord.app_commands.guild_only()
     async def change_channel(self, interaction: discord.Interaction):
         
         if interaction.guild_id not in self.guild_settings.keys():
-            self.db.execute(f"INSERT INTO guilds VALUES ({interaction.guild_id}, {interaction.channel_id}, 1)")
+            self.db.execute(f"INSERT INTO guilds VALUES ({interaction.guild_id}, {interaction.channel_id})")
             conversation = self.cb.conversation(str(interaction.guild_id))
-            self.guild_settings[interaction.guild_id] = GuildSetting(interaction.guild, interaction.channel, 1, conversation)
+            self.guild_settings[interaction.guild_id] = GuildSetting(interaction.guild, interaction.channel, conversation)
         else:    
             self.db.execute(f"UPDATE guilds SET channel_id = {interaction.channel_id} WHERE guild_id = {interaction.guild_id}")
             self.guild_settings[interaction.guild_id].channel = interaction.channel
