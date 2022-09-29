@@ -37,7 +37,7 @@ class CommandsCog(commands.Cog):
     async def on_ready(self):
         """Creates guildsettings for each record in the table then adds them to the dictionary."""
 
-        cursor = self.db.execute("SELECT * FROM guilds")
+        cursor = self.db.execute('SELECT * FROM guilds')
         guild_records = cursor.fetchall()
         
         for guild_record in guild_records:
@@ -51,6 +51,9 @@ class CommandsCog(commands.Cog):
 
             self.guild_dict[guild_id] = GuildSetting(channel, conversation)
 
+        await self.bot.change_presence(
+            activity=discord.Activity(name="/setchannel", type=discord.ActivityType.playing)
+        )
         await self.bot.tree.sync()
         print("crag.")
 
@@ -81,7 +84,7 @@ class CommandsCog(commands.Cog):
             return
 
         del self.guild_dict[guild.id]
-        self.db.execute(f"DELETE FROM guilds WHERE guild_id = {guild.id}")
+        self.db.execute(f'DELETE FROM guilds WHERE guild_id = {guild.id}')
         self.db.commit()
     
     @discord.app_commands.command(name="setchannel", description="Change the channel that crag will live in to the current channel.")
@@ -92,10 +95,10 @@ class CommandsCog(commands.Cog):
         if interaction.guild_id not in self.guild_dict.keys():
             conversation = self.cb.conversation(str(interaction.guild_id))
             self.guild_dict[interaction.guild_id] = GuildSetting(interaction.channel, conversation)
-            self.db.execute(f"INSERT INTO guilds VALUES ({interaction.guild_id}, {interaction.channel_id})")
+            self.db.execute(f'INSERT INTO guilds VALUES ({interaction.guild_id}, {interaction.channel_id})')
         else:    
             self.guild_dict[interaction.guild_id].channel = interaction.channel
-            self.db.execute(f"UPDATE guilds SET channel_id = {interaction.channel_id} WHERE guild_id = {interaction.guild_id}")
+            self.db.execute(f'UPDATE guilds SET channel_id = {interaction.channel_id} WHERE guild_id = {interaction.guild_id}')
         
         self.db.commit()
 
@@ -111,7 +114,7 @@ class CommandsCog(commands.Cog):
 if __name__ == '__main__':
     
     crag = commands.Bot(
-        command_prefix="NO PREFIX",
+        command_prefix='NO PREFIX',
         help_command=None,
         intents=discord.Intents.all()
     )
