@@ -100,4 +100,7 @@ if __name__ == '__main__':
         intents=discord.Intents.all(),
         activity=discord.Activity(type=discord.ActivityType.watching, name="for /setchannel")
     )
+    
     crag.run(os.getenv('CRAGTOKEN'))
+    if crag.db.is_alive():
+        asyncio.run(crag.db.close())
