@@ -40,12 +40,9 @@ class CragBot(commands.Bot):
 
     async def on_ready(self):
         self.db = await aiosqlite.connect('crag.sqlite')
-        self.cb = cleverbot.load('cleverbot.crag')
+        self.cb = cleverbot.load('crag.cleverbot')
 
         await self.tree.sync()
-        await self.change_presence(
-            activity=discord.Activity(name="/setchannel", type=discord.ActivityType.playing)
-        )
         print("crag.")
 
     async def on_disconnect(self):
@@ -75,7 +72,7 @@ class CragBot(commands.Bot):
                 await asyncio.sleep(2)
             await msg.channel.send(response)
 
-            self.cb.save('cleverbot.crag')
+            self.cb.save('crag.cleverbot')
                 
     @discord.app_commands.guild_only()
     async def change_channel_callback(self, interaction: discord.Interaction):
@@ -101,6 +98,7 @@ if __name__ == '__main__':
     crag = CragBot(
         command_prefix='NO PREFIX',
         help_command=None,
-        intents=discord.Intents.all()
+        intents=discord.Intents.all(),
+        activity=discord.Activity(type=discord.ActivityType.watching, name="for /setchannel")
     )
     crag.run(os.getenv('CRAGTOKEN'))
