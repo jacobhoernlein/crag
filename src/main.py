@@ -40,7 +40,17 @@ class CragBot(commands.Bot):
 
     async def on_ready(self):
         self.db = await aiosqlite.connect('crag.sqlite')
-        self.cb = cleverbot.load('crag.cleverbot')
+        await self.db.execute(
+            'CREATE TABLE IF NOT EXISTS guilds (guild_id INTEGER, channel_id INTEGER)'
+        )
+        await self.db.commit()
+
+        try:
+            self.cb = cleverbot.load('crag.cleverbot')
+        except:
+            print("No cleverbot save file found. Create a new one manually and save as crag.cleverbot")
+            print("Visit https://pypi.org/project/cleverbot.py/ to learn how.")
+            await self.close()
 
         await self.tree.sync()
         print("crag.")
