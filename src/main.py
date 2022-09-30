@@ -54,17 +54,16 @@ class CragBot(commands.Bot):
     async def on_message(self, msg: discord.Message):
         """Listens for messages in the channel set for the server then responds to the conversation."""
 
-        if msg.author == self.user:
+        if msg.author == self.user or msg.guild is None:
             return
 
         async with self.db.execute(f'SELECT channel_id FROM guilds WHERE guild_id = {msg.guild.id}') as cursor:
             record = await cursor.fetchone()
-    
         if record is None:
             return
-    
-        if record[0] == msg.channel.id:
             
+        if record[0] == msg.channel.id:
+
             convo = self.cb.conversations[str(msg.guild.id)]
             response = convo.say(msg.content)
 
@@ -101,4 +100,7 @@ if __name__ == '__main__':
         intents=discord.Intents.all(),
         activity=discord.Activity(type=discord.ActivityType.watching, name="for /setchannel")
     )
+    
     crag.run(os.getenv('CRAGTOKEN'))
+    if crag.db.is_alive():
+        asyncio.run(crag.db.close())
