@@ -59,20 +59,20 @@ class CragBot(commands.Bot):
 
         async with self.db.execute(f'SELECT channel_id FROM guilds WHERE guild_id = {msg.guild.id}') as cursor:
             record = await cursor.fetchone()
-        
-        if record:
     
-            channel_id: int = record[0]
+        if record is None:
+            return
+    
+        if record[0] == msg.channel.id:
+            
             convo = self.cb.conversations[str(msg.guild.id)]
+            response = convo.say(msg.content)
 
-            if channel_id == msg.channel.id:
-                response = convo.say(msg.content)
+            async with msg.channel.typing():
+                await asyncio.sleep(2)
+            await msg.channel.send(response)
 
-                async with msg.channel.typing():
-                    await asyncio.sleep(2)
-                await msg.channel.send(response)
-
-                self.cb.save('crag.cleverbot')
+            self.cb.save('crag.cleverbot')
                 
     @discord.app_commands.guild_only()
     async def change_channel_callback(self, interaction: discord.Interaction):
