@@ -1,3 +1,3 @@
 # crag
 
-Crag is a chat bot that uses a sqlite3 database for multi-server support.
+Crag is a discord chat bot that uses the discord.py, cleverbot.py, and aiosqlite python modules.
