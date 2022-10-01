@@ -39,26 +39,16 @@ class CragBot(commands.Bot):
         )
 
     async def on_ready(self):
+        """Connects to the database and syncs the command tree."""
+        
         self.db = await aiosqlite.connect('crag.sqlite')
-
         await self.db.execute('CREATE TABLE IF NOT EXISTS guilds (guild_id INTEGER, channel_id INTEGER)')
         await self.db.commit()
 
-        try:
-            self.cb = cleverbot.load('crag.cleverbot')
-        except FileNotFoundError:
-            print("No cleverbot save file found. Create a new one manually and save as 'crag.cleverbot'")
-            print("Visit https://pypi.org/project/cleverbot.py/ to learn how.")
-            await self.close()
-
         await self.tree.sync()
-        print("crag.")
-
-    async def on_disconnect(self):
-        await self.db.close()
-
-    async def on_resumed(self):
-        self.db = await aiosqlite.connect('crag.sqlite')
+        
+        response = self.cb.say("Hello!")
+        print(response)
     
     def get_convo(self, key: str) -> cleverbot.cleverbot.Conversation:
         """Returns a conversation with the given key; creates it if it doesn't exist."""
@@ -88,12 +78,13 @@ class CragBot(commands.Bot):
 
         convo = self.get_convo(str(msg.guild.id))
         response = convo.say(msg.content)
+        
         async with msg.channel.typing():
             await asyncio.sleep(2)
         await msg.channel.send(response)
 
         self.cb.save('crag.cleverbot')
-                
+    
     @discord.app_commands.guild_only()
     async def change_channel_callback(self, interaction: discord.Interaction):
         """Sets up the bot to work in the channel the command was run in. Creates a record if it does not exist."""
@@ -107,17 +98,42 @@ class CragBot(commands.Bot):
             await self.db.execute(f'UPDATE guilds SET channel_id = {interaction.channel_id} WHERE guild_id = {interaction.guild_id}')
         await self.db.commit()
 
-        convo = self.get_convo(str(interaction.guild_id))
-        response = convo.say('Tell me something interesting.')
-        await interaction.response.send_message(response)
+        await interaction.response.send_message("Channel Updated.", ephemeral=True)
 
-        self.cb.save('crag.cleverbot')
-        
     async def donate_command_callback(self, interaction: discord.Interaction):
         """Sends a link to the user that lets them donate to me."""        
         
         await interaction.response.send_message("Please consider supporting my creator at https://paypal.me/jhoernlein")
 
+
+def prep(bot: CragBot):
+    """Ensures the cleverbot is connected to the API either by a save file or API token."""
+    
+    try:
+        bot.cb = cleverbot.load('crag.cleverbot')
+    except FileNotFoundError:
+        
+        while True:
+            cleverbot_token = input("Enter your Cleverbot API token: ")
+            bot.cb = cleverbot.Cleverbot(cleverbot_token)
+
+            try:
+                bot.cb.say('TEST')
+            except cleverbot.APIError:
+                print("Invalid API key. Try again. ")
+            else:
+                bot.cb.save('crag.cleverbot')
+                break
+
+async def cleanup(bot: CragBot):
+    """Closes the connections to the database if not already done."""
+    
+    try:
+        await bot.db.close()
+    except ValueError:
+        # Connection already closed
+        pass
+    
 
 if __name__ == '__main__':
 
@@ -128,9 +144,6 @@ if __name__ == '__main__':
         activity=discord.Activity(type=discord.ActivityType.watching, name="for /setchannel")
     )
     
+    prep(crag)
     crag.run(os.getenv('CRAGTOKEN'))
-    
-    try:
-        asyncio.run(crag.db.close())
-    except ValueError:
-        pass
+    asyncio.run(cleanup(crag))
