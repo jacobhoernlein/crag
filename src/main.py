@@ -40,6 +40,7 @@ class CragBot(commands.Bot):
 
     async def on_ready(self):
         self.db = await aiosqlite.connect('crag.sqlite')
+
         await self.db.execute('CREATE TABLE IF NOT EXISTS guilds (guild_id INTEGER, channel_id INTEGER)')
         await self.db.commit()
 
@@ -59,31 +60,44 @@ class CragBot(commands.Bot):
     async def on_resumed(self):
         self.db = await aiosqlite.connect('crag.sqlite')
     
+    def get_convo(self, key: str) -> cleverbot.cleverbot.Conversation:
+        """Returns a conversation with the given key; creates it if it doesn't exist."""
+        
+        try:
+            convo = self.cb.conversations[key]
+        except (TypeError, KeyError):
+            # cb.conversations is None type, can't subscript
+            # or conversation does not exist for guild id
+            convo = self.cb.conversation(key)
+        
+        return convo
+
     async def on_message(self, msg: discord.Message):
         """Listens for messages in the channel set for the server then responds to the conversation."""
 
-        if msg.author == self.user or msg.guild is None:
+        try:
+            async with self.db.execute(f'SELECT channel_id FROM guilds WHERE guild_id = {msg.guild.id}') as cursor:
+                crag_channel_id = (await cursor.fetchone())[0]
+        except (AttributeError, TypeError):
+            # Guild object has no id attribute or
+            # No record exists, can't subscript None type
+            return
+        
+        if msg.author == self.user or msg.channel.id != crag_channel_id:
             return
 
-        async with self.db.execute(f'SELECT channel_id FROM guilds WHERE guild_id = {msg.guild.id}') as cursor:
-            record = await cursor.fetchone()
-        if record is None:
-            return
-            
-        if record[0] == msg.channel.id:
-            convo = self.cb.conversations[str(msg.guild.id)]
+        convo = self.get_convo(str(msg.guild.id))
+        response = convo.say(msg.content)
+        async with msg.channel.typing():
+            await asyncio.sleep(2)
+        await msg.channel.send(response)
 
-            response = convo.say(msg.content)
-            async with msg.channel.typing():
-                await asyncio.sleep(2)
-            await msg.channel.send(response)
-
-            self.cb.save('crag.cleverbot')
+        self.cb.save('crag.cleverbot')
                 
     @discord.app_commands.guild_only()
     async def change_channel_callback(self, interaction: discord.Interaction):
         """Sets up the bot to work in the channel the command was run in. Creates a record if it does not exist."""
-
+        
         async with self.db.execute(f'SELECT * FROM guilds WHERE guild_id = {interaction.guild_id}') as cursor:
             record = await cursor.fetchone()
 
@@ -93,14 +107,7 @@ class CragBot(commands.Bot):
             await self.db.execute(f'UPDATE guilds SET channel_id = {interaction.channel_id} WHERE guild_id = {interaction.guild_id}')
         await self.db.commit()
 
-        key = str(interaction.guild.id)
-        if self.cb.conversations is None:
-            convo = self.cb.conversation(key)
-        elif key not in self.cb.conversations.keys():
-            convo = self.cb.conversation(key)
-        else:
-            convo = self.cb.conversations[key]
-
+        convo = self.get_convo(str(interaction.guild_id))
         response = convo.say('Tell me something interesting.')
         await interaction.response.send_message(response)
 
