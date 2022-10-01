@@ -27,14 +27,14 @@ class CragBot(commands.Bot):
             discord.app_commands.Command(
                 name="setchannel",
                 description="Change the channel that crag will live in to the current channel.",
-                callback=self.change_channel_callback
+                callback=self.set_channel_callback
             )
         )
         self.tree.add_command(
             discord.app_commands.Command(
                 name="donate",
                 description="Support the creator (he is broke).",
-                callback=self.donate_command_callback
+                callback=self.donate_callback
             )
         )
 
@@ -65,15 +65,11 @@ class CragBot(commands.Bot):
     async def on_message(self, msg: discord.Message):
         """Listens for messages in the channel set for the server then responds to the conversation."""
 
-        try:
-            async with self.db.execute(f'SELECT channel_id FROM guilds WHERE guild_id = {msg.guild.id}') as cursor:
-                crag_channel_id = (await cursor.fetchone())[0]
-        except (AttributeError, TypeError):
-            # Guild object has no id attribute or
-            # No record exists, can't subscript None type
+        async with self.db.execute(f'SELECT channel_id FROM guilds WHERE guild_id = {msg.guild.id}') as cursor:
+            record = await cursor.fetchone()
+        if record is None:
             return
-        
-        if msg.author == self.user or msg.channel.id != crag_channel_id:
+        if msg.author == self.user or msg.channel.id != record[0]:
             return
 
         convo = self.get_convo(str(msg.guild.id))
@@ -86,54 +82,25 @@ class CragBot(commands.Bot):
         self.cb.save('crag.cleverbot')
     
     @discord.app_commands.guild_only()
-    async def change_channel_callback(self, interaction: discord.Interaction):
+    async def set_channel_callback(self, interaction: discord.Interaction):
         """Sets up the bot to work in the channel the command was run in. Creates a record if it does not exist."""
         
         async with self.db.execute(f'SELECT * FROM guilds WHERE guild_id = {interaction.guild_id}') as cursor:
             record = await cursor.fetchone()
 
-        if record is None:
-            await self.db.execute(f'INSERT INTO guilds VALUES ({interaction.guild_id}, {interaction.channel_id})')
-        else:
+        if record:
             await self.db.execute(f'UPDATE guilds SET channel_id = {interaction.channel_id} WHERE guild_id = {interaction.guild_id}')
+        else:
+            await self.db.execute(f'INSERT INTO guilds VALUES ({interaction.guild_id}, {interaction.channel_id})')
         await self.db.commit()
 
         await interaction.response.send_message("Channel Updated.", ephemeral=True)
 
-    async def donate_command_callback(self, interaction: discord.Interaction):
+    async def donate_callback(self, interaction: discord.Interaction):
         """Sends a link to the user that lets them donate to me."""        
         
         await interaction.response.send_message("Please consider supporting my creator at https://paypal.me/jhoernlein")
 
-
-def prep(bot: CragBot):
-    """Ensures the cleverbot is connected to the API either by a save file or API token."""
-    
-    try:
-        bot.cb = cleverbot.load('crag.cleverbot')
-    except FileNotFoundError:
-        
-        while True:
-            cleverbot_token = input("Enter your Cleverbot API token: ")
-            bot.cb = cleverbot.Cleverbot(cleverbot_token)
-
-            try:
-                bot.cb.say('TEST')
-            except cleverbot.APIError:
-                print("Invalid API key. Try again. ")
-            else:
-                bot.cb.save('crag.cleverbot')
-                break
-
-async def cleanup(bot: CragBot):
-    """Closes the connections to the database if not already done."""
-    
-    try:
-        await bot.db.close()
-    except ValueError:
-        # Connection already closed
-        pass
-    
 
 if __name__ == '__main__':
 
@@ -144,6 +111,21 @@ if __name__ == '__main__':
         activity=discord.Activity(type=discord.ActivityType.watching, name="for /setchannel")
     )
     
-    prep(crag)
+    try:
+        crag.cb = cleverbot.load('crag.cleverbot')
+    except FileNotFoundError:
+        
+        while True:
+            cleverbot_token = input("Enter your Cleverbot API token: ")
+            crag.cb = cleverbot.Cleverbot(cleverbot_token)
+
+            try:
+                crag.cb.say('TEST')
+            except cleverbot.APIError:
+                print("Invalid API key. Try again. ")
+            else:
+                crag.cb.save('crag.cleverbot')
+                break
+
     crag.run(os.getenv('CRAGTOKEN'))
-    asyncio.run(cleanup(crag))
+    asyncio.run(crag.db.close())
