@@ -94,7 +94,9 @@ class CragBot(commands.Bot):
         await self.db.commit()
 
         key = str(interaction.guild.id)
-        if key not in self.cb.conversations.keys():
+        if self.cb.conversations is None:
+            convo = self.cb.conversation(key)
+        elif key not in self.cb.conversations.keys():
             convo = self.cb.conversation(key)
         else:
             convo = self.cb.conversations[key]
