@@ -5,7 +5,6 @@ Version 2.
 """
 
 import asyncio
-import os
 
 import aiosqlite
 import cleverbot
@@ -18,11 +17,14 @@ class CragBot(commands.Bot):
     connections.
     """
 
-    db: aiosqlite.Connection
-    cb: cleverbot.Cleverbot
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, dbname: str, cbname: str):
+        super().__init__(
+            command_prefix="NO PREFIX",
+            help_command=None,
+            intents=discord.Intents.all(),
+            activity=discord.Activity(
+                type=discord.ActivityType.watching,
+                name="for /setchannel"))
 
         self.tree.add_command(
             discord.app_commands.Command(
@@ -34,6 +36,34 @@ class CragBot(commands.Bot):
                 name="donate",
                 description="Support the creator (he is broke).",
                 callback=self.donate_callback))
+
+        self.dbname = dbname
+        self.cbname = cbname
+        self.db: aiosqlite.Connection = None
+        self.cb: cleverbot.Cleverbot = None
+
+    def load_cb(self):
+        """Tries to open the cleverbot file given in the init. If it
+        fails prompts the user for a cleverbot token until it gets a
+        valid one.
+        """
+
+        try:
+            self.cb = cleverbot.load(self.cbname)
+        except FileNotFoundError:
+            
+            while True:
+                cleverbot_token = input("Enter your Cleverbot API token: ")
+                self.cb = cleverbot.Cleverbot(cleverbot_token)
+
+                try:
+                    self.cb.say("TEST")
+                except cleverbot.APIError:
+                    print("Invalid API key. Try again. ")
+                else:
+                    self.cb.save(self.cbname)
+                    break
+
 
     def get_convo(self, key: str) -> cleverbot.cleverbot.Conversation:
         """Returns a conversation with the given key; creates it if it
@@ -52,7 +82,7 @@ class CragBot(commands.Bot):
     async def on_ready(self):
         """Connects to the database and syncs the command tree."""
         
-        self.db = await aiosqlite.connect("crag.sqlite")
+        self.db = await aiosqlite.connect(self.dbname)
         await self.db.execute("CREATE TABLE IF NOT EXISTS guilds (guild_id INTEGER, channel_id INTEGER)")
         await self.db.commit()
 
@@ -83,7 +113,7 @@ class CragBot(commands.Bot):
             await asyncio.sleep(2)
         await msg.channel.send(response)
 
-        self.cb.save("crag.cleverbot")
+        self.cb.save(self.cbname)
     
     @discord.app_commands.guild_only()
     async def set_channel_callback(self, interaction: discord.Interaction):
@@ -107,34 +137,3 @@ class CragBot(commands.Bot):
         """Sends a link to the user that lets them donate to me."""        
         
         await interaction.response.send_message("Please consider supporting my creator at https://paypal.me/jhoernlein")
-
-
-if __name__ == '__main__':
-
-    crag = CragBot(
-        command_prefix="NO PREFIX",
-        help_command=None,
-        intents=discord.Intents.all(),
-        activity=discord.Activity(
-            type=discord.ActivityType.watching,
-            name="for /setchannel")
-    )
-    
-    try:
-        crag.cb = cleverbot.load("crag.cleverbot")
-    except FileNotFoundError:
-        
-        while True:
-            cleverbot_token = input("Enter your Cleverbot API token: ")
-            crag.cb = cleverbot.Cleverbot(cleverbot_token)
-
-            try:
-                crag.cb.say("TEST")
-            except cleverbot.APIError:
-                print("Invalid API key. Try again. ")
-            else:
-                crag.cb.save("crag.cleverbot")
-                break
-
-    crag.run(os.getenv("CRAGTOKEN"))
-    asyncio.run(crag.db.close())
