@@ -1,3 +1,3 @@
 # crag
 
-Crag is a discord chat bot that uses discord.py, cleverbot.py, and a sqlite3 database.
+Crag is a Discord chat bot that uses discord.py and cleverbot.py. He has blond hair, blue eyes, and he loves to sing.
